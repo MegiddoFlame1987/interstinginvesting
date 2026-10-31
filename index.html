@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>InterestingInvesting</title>
+<meta name="description" content="Eksperymenty inwestycyjne na żywo: agenci AI na koncie paper, testy strategii, wyniki bez upiększania.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<style>
+:root{
+  --bg:#f6f4ef; --panel:#ffffff; --ink:#1b1d1f; --muted:#6a6f75; --line:#e2ded6;
+  --up:#1f7a4d; --down:#b3392f; --accent:#2b4c7e; --chip:#efece5;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121416; --panel:#1b1e21; --ink:#e9e7e2; --muted:#9aa0a6; --line:#2c3035;
+    --up:#4cc38a; --down:#f07167; --accent:#8fb3ff; --chip:#24282c;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121416; --panel:#1b1e21; --ink:#e9e7e2; --muted:#9aa0a6; --line:#2c3035;
+  --up:#4cc38a; --down:#f07167; --accent:#8fb3ff; --chip:#24282c;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "IBM Plex Sans",system-ui,sans-serif}
+.wrap{max-width:1040px;margin:0 auto;padding:28px 16px 60px}
+header h1{font-size:clamp(28px,5vw,44px);margin:0;letter-spacing:-.02em}
+header p{margin:6px 0 0;color:var(--muted);max-width:640px}
+.tag{display:inline-block;font:600 12px "IBM Plex Mono",monospace;background:var(--chip);border:1px solid var(--line);padding:2px 8px;border-radius:99px;color:var(--muted);margin-right:6px}
+h2{font-size:20px;margin:40px 0 12px;letter-spacing:-.01em}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+.card h3{margin:0 0 2px;font-size:17px}
+.card .sub{color:var(--muted);font-size:14px;margin-bottom:14px}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 16px}
+.kpi .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.kpi .v{font:600 22px "IBM Plex Mono",monospace}
+.up{color:var(--up)} .down{color:var(--down)}
+.bar{height:8px;background:var(--chip);border-radius:99px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--accent)}
+svg.chart{width:100%;height:120px;margin-top:14px;display:block}
+.legend{font-size:12px;color:var(--muted);display:flex;gap:14px;margin-top:4px}
+.legend b{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+td.n{font-family:"IBM Plex Mono",monospace;text-align:right} th.n{text-align:right}
+.scroll{overflow-x:auto}
+@media (max-width:560px){.hide-s{display:none} th,td{padding:7px 5px}}
+.md{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 18px 14px;overflow-x:auto}
+.md h1{font-size:20px} .md h2{font-size:17px;margin-top:22px} .md table{margin:8px 0}
+.note{color:var(--muted);font-size:13px;margin-top:40px;border-top:1px solid var(--line);padding-top:14px}
+.err{color:var(--down);font-size:14px}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <span class="tag">paper trading</span><span class="tag">dane na żywo z GitHuba</span>
+  <h1>InterestingInvesting</h1>
+  <p>Eksperymenty z zamrożonymi regułami. Agent AI czyta nagłówki i decyduje przed otwarciem rynku. Liczy się tylko to, czy bije prosty benchmark po kosztach.</p>
+</header>
+
+<h2>Agenci dzienni</h2>
+<div class="grid" id="agents"><div class="card">Ładuję dane…</div></div>
+
+<h2>Ostatnie sesje</h2>
+<div class="card scroll"><table id="days"><tr><td>Ładuję…</td></tr></table></div>
+
+<h2>Strategie: typy z rolek vs SPY</h2>
+<div class="md" id="typy">Ładuję…</div>
+
+<p class="note">Konto paper Alpaca, bez prawdziwych pieniędzy. To nie jest porada inwestycyjna. Reguły, kod i surowe dane: <a href="https://github.com/MegiddoFlame1987/od0doM">github.com/MegiddoFlame1987/od0doM</a>. Strona czyta pliki z repo przy każdym otwarciu.</p>
+</div>
+
+<script>
+const BASE = new URLSearchParams(location.search).get("base")
+  || "https://raw.githubusercontent.com/MegiddoFlame1987/od0doM/main/";
+
+const AGENTS = [
+  {key:"v1", file:"data/wyniki.csv", version:"1.2", name:"v1.2 · newsy przewidują kierunek",
+   sub:"USO, SMH, DBA, GLD, TLT · LONG albo SHORT · 1 sesja", cost:0.001, slots:5},
+  {key:"v3", file:"data_v3/wyniki.csv", version:"3.1", name:"v3.1 · surowce w trendzie",
+   sub:"max 5 z 10 surowców nad SMA200 · LONG albo SKIP · 1 sesja", cost:0.0015, slots:5},
+];
+const KILL = 30;
+
+function parseCSV(t){
+  const [h,...rows] = t.trim().split(/\r?\n/);
+  const k = h.split(",");
+  return rows.filter(Boolean).map(r => Object.fromEntries(r.split(",").map((v,i)=>[k[i],v])));
+}
+const pct = (x, d=2) => (x>=0?"+":"") + (x*100).toFixed(d) + "%";
+const cls = x => x>0 ? "up" : x<0 ? "down" : "";
+
+function sessions(rows, a){
+  const byDay = {};
+  for (const r of rows){
+    if (r.wersja !== a.version || r.zaliczona !== "True") continue;
+    const ch = parseFloat(r.zmiana), w = parseFloat(r.wynik);
+    if (isNaN(ch)) continue;
+    const d = byDay[r.data] ||= {data:r.data, agent:0, always:0, n:0, long:0, short:0, skip:0};
+    d.agent += isNaN(w) ? 0 : w;
+    d.always += ch - a.cost;
+    d.n++;
+    d[r.kierunek === "LONG" ? "long" : r.kierunek === "SHORT" ? "short" : "skip"]++;
+  }
+  return Object.values(byDay).sort((x,y)=>x.data.localeCompare(y.data))
+    .map(d => ({...d, agent:d.agent/a.slots, always:d.always/a.slots}));
+}
+
+function curve(days, f){ let e=1; return days.map(d => (e *= 1 + d[f])); }
+
+function chart(days){
+  if (days.length < 2) return '<p class="sub">Wykres pojawi się po 2 sesjach.</p>';
+  const A = [1, ...curve(days,"agent")], B = [1, ...curve(days,"always")];
+  const all = [...A, ...B], lo = Math.min(...all), hi = Math.max(...all), W = 300, H = 110;
+  const pts = s => s.map((v,i)=>`${(i/(s.length-1)*W).toFixed(1)},${(H-(v-lo)/((hi-lo)||1)*(H-10)-5).toFixed(1)}`).join(" ");
+  const y1 = (H-(1-lo)/((hi-lo)||1)*(H-10)-5).toFixed(1);
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Krzywa kapitału">
+    <line x1="0" x2="${W}" y1="${y1}" y2="${y1}" stroke="var(--line)" stroke-dasharray="3 3"/>
+    <polyline fill="none" stroke="var(--muted)" stroke-width="1.5" points="${pts(B)}" vector-effect="non-scaling-stroke"/>
+    <polyline fill="none" stroke="var(--accent)" stroke-width="2.5" points="${pts(A)}" vector-effect="non-scaling-stroke"/>
+  </svg>
+  <div class="legend"><span><b style="background:var(--accent)"></b>agent</span><span><b style="background:var(--muted)"></b>zawsze LONG</span></div>`;
+}
+
+function card(a, days){
+  const ag = curve(days,"agent").at(-1) ?? 1, al = curve(days,"always").at(-1) ?? 1;
+  const edge = (ag - 1) - (al - 1), n = days.length;
+  return `<div class="card">
+    <h3>${a.name}</h3><div class="sub">${a.sub}</div>
+    <div class="kpis">
+      <div class="kpi"><div class="l">Sesje zaliczone</div><div class="v">${n} / ${KILL}</div>
+        <div class="bar"><i style="width:${Math.min(n/KILL,1)*100}%"></i></div></div>
+      <div class="kpi"><div class="l">Agent</div><div class="v ${cls(ag-1)}">${pct(ag-1)}</div></div>
+      <div class="kpi"><div class="l">Zawsze LONG</div><div class="v ${cls(al-1)}">${pct(al-1)}</div></div>
+      <div class="kpi"><div class="l">Przewaga</div><div class="v ${cls(edge)}">${pct(edge)}</div></div>
+    </div>
+    ${chart(days)}
+  </div>`;
+}
+
+async function get(path){
+  const r = await fetch(BASE + path + "?t=" + Date.now(), {cache:"no-store"});
+  if (!r.ok) throw new Error(path + ": HTTP " + r.status);
+  return r.text();
+}
+
+(async () => {
+  const cards = [], table = [];
+  for (const a of AGENTS){
+    try {
+      const days = sessions(parseCSV(await get(a.file)), a);
+      cards.push(card(a, days));
+      for (const d of days) table.push({...d, agent_name:a.key});
+    } catch(e){ cards.push(`<div class="card"><h3>${a.name}</h3><p class="err">Brak danych (${e.message})</p></div>`); }
+  }
+  document.getElementById("agents").innerHTML = cards.join("");
+  table.sort((x,y)=>y.data.localeCompare(x.data) || x.agent_name.localeCompare(y.agent_name));
+  document.getElementById("days").innerHTML =
+    `<tr><th>Data</th><th>Wersja</th><th class="hide-s">Decyzje</th><th class="n">Agent</th><th class="n">Zawsze LONG</th><th class="n">Różnica</th></tr>` +
+    (table.slice(0,20).map(d => `<tr><td>${d.data.slice(5)}</td><td>${d.agent_name}</td>
+      <td class="hide-s">${[d.long&&d.long+"× LONG", d.short&&d.short+"× SHORT", d.skip&&d.skip+"× SKIP"].filter(Boolean).join(", ")}</td>
+      <td class="n ${cls(d.agent)}">${pct(d.agent)}</td><td class="n ${cls(d.always)}">${pct(d.always)}</td>
+      <td class="n ${cls(d.agent-d.always)}">${pct(d.agent-d.always)}</td></tr>`).join("")
+     || `<tr><td colspan="6">Jeszcze brak zaliczonych sesji.</td></tr>`);
+  try { document.getElementById("typy").innerHTML = marked.parse(await get("strategie/typy_raport.md")); }
+  catch(e){ document.getElementById("typy").innerHTML = `<p class="err">Brak raportu (${e.message})</p>`; }
+})();
+</script>
+</body>
+</html>
